@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Shiftwell certificate check (prototype)</title>
+<style>
+:root{--bg:#f6f7f9;--card:#fff;--ink:#14213d;--mute:#5b6577;--line:#d9dde5;--ok:#0f7b5f;--okbg:#e2f4ee;--bad:#b3261e;--badbg:#fbe4e2;
+box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0f1420;--card:#18202f;--ink:#e8ecf4;--mute:#9aa5b8;--line:#2d3850;--ok:#4cc9a0;--okbg:#12342b;--bad:#ff8b82;--badbg:#401a18}}
+:root[data-theme="dark"]{--bg:#0f1420;--card:#18202f;--ink:#e8ecf4;--mute:#9aa5b8;--line:#2d3850;--ok:#4cc9a0;--okbg:#12342b;--bad:#ff8b82;--badbg:#401a18}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--ink);font-family:system-ui,-apple-system,"Segoe UI",Arial,sans-serif;font-size:16px;line-height:1.5}
+main{max-width:560px;margin:0 auto;padding:20px 16px 40px}
+h1{font-size:22px;margin:0 0 4px}
+p{margin:0 0 14px;color:var(--mute)}
+.card{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:16px;margin-bottom:14px}
+label{display:block;font-size:14px;color:var(--mute);margin:10px 0 4px}
+label:first-child{margin-top:0}
+select,input{width:100%;padding:10px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--ink);font:inherit}
+.result{border-radius:8px;padding:18px;margin-bottom:14px}
+.result b{display:block;font-size:24px}
+.ok{background:var(--okbg);color:var(--ok)}.bad{background:var(--badbg);color:var(--bad)}
+.row{display:flex;justify-content:space-between;gap:10px;padding:10px 0;border-top:1px solid var(--line)}
+.row:first-child{border-top:0}
+.row small{display:block;color:var(--mute)}
+.pill{flex:none;align-self:center;font-weight:700;font-size:13px;padding:2px 10px;border-radius:999px}
+.pill.ok{background:var(--okbg)}.pill.bad{background:var(--badbg)}
+h2{font-size:15px;margin:0 0 6px}
+</style>
+</head>
+<body>
+<main>
+<h1>Can this nurse take the shift?</h1>
+<p>Prototype for CarePoint Clinics. Shiftwell checks each required certificate against the date of the shift, and blocks the swap if one has expired. Names and dates are demo data.</p>
+
+<div class="card">
+  <label for="date">Shift date</label><input type="date" id="date" value="2026-10-28">
+  <label for="who">Who is taking over the shift?</label><select id="who"></select>
+</div>
+
+<div class="result" id="result" aria-live="polite"></div>
+
+<div class="card">
+  <h2>Required for a nurse shift</h2>
+  <div id="certs"></div>
+</div>
+
+<div class="card">
+  <h2>All nurses on this date</h2>
+  <div id="all"></div>
+</div>
+</main>
+<script>
+var NURSES=[
+ {n:"Ravi Menon",bls:"2027-03-15",reg:"2027-01-10"},
+ {n:"Meera Das",bls:"2026-10-25",reg:"2027-05-01"},
+ {n:"Asha Nair",bls:"2026-09-30",reg:"2027-06-30"},
+ {n:"Kiran Joshi",bls:"2026-11-20",reg:"2026-10-10"}
+];
+function $(i){return document.getElementById(i)}
+function fmt(d){return new Date(d).toLocaleDateString("en-IN",{day:"numeric",month:"short",year:"numeric"})}
+function chk(exp,date){return new Date(exp)>=new Date(date)}
+var sel=$("who");
+NURSES.forEach(function(x,i){var o=document.createElement("option");o.value=i;o.textContent=x.n;sel.appendChild(o)});
+sel.value=1;
+function problems(x,date){
+ var p=[];
+ if(!chk(x.bls,date))p.push("BLS certificate expired on "+fmt(x.bls));
+ if(!chk(x.reg,date))p.push("Nursing council registration expired on "+fmt(x.reg));
+ return p;
+}
+function run(){
+ var date=$("date").value,x=NURSES[sel.value],p=problems(x,date);
+ var r=$("result");
+ if(p.length){r.className="result bad";r.innerHTML="<b>Blocked</b>"+x.n+" cannot take this shift. "+p.join(". ")+"."}
+ else{r.className="result ok";r.innerHTML="<b>Allowed</b>"+x.n+" has valid certificates on "+fmt(date)+"."}
+ function line(name,exp){var ok=chk(exp,date);return '<div class="row"><div>'+name+'<small>Expires '+fmt(exp)+'</small></div><span class="pill '+(ok?'ok':'bad')+'">'+(ok?'Valid':'Expired')+'</span></div>'}
+ $("certs").innerHTML=line("BLS certificate",x.bls)+line("Nursing council registration",x.reg);
+ $("all").innerHTML=NURSES.map(function(y){var q=problems(y,date);return '<div class="row"><div>'+y.n+'<small>'+(q.length?q.join(". "):"All certificates valid")+'</small></div><span class="pill '+(q.length?'bad':'ok')+'">'+(q.length?'Blocked':'Allowed')+'</span></div>'}).join("");
+}
+$("date").addEventListener("input",run);sel.addEventListener("input",run);
+run();
+</script>
+</body>
+</html>

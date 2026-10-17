@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Shiftwell swap approvals (prototype)</title>
+<style>
+:root{--bg:#f6f7f9;--card:#fff;--ink:#14213d;--mute:#5b6577;--line:#d9dde5;--ok:#0f7b5f;--okbg:#e2f4ee;--warn:#9a5b00;--warnbg:#fdf0d8;--acc:#14213d;
+box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0f1420;--card:#18202f;--ink:#e8ecf4;--mute:#9aa5b8;--line:#2d3850;--ok:#4cc9a0;--okbg:#12342b;--warn:#f0b254;--warnbg:#3a2c10;--acc:#e8ecf4}}
+:root[data-theme="dark"]{--bg:#0f1420;--card:#18202f;--ink:#e8ecf4;--mute:#9aa5b8;--line:#2d3850;--ok:#4cc9a0;--okbg:#12342b;--warn:#f0b254;--warnbg:#3a2c10;--acc:#e8ecf4}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--ink);font-family:system-ui,-apple-system,"Segoe UI",Arial,sans-serif;font-size:16px;line-height:1.5}
+main{max-width:620px;margin:0 auto;padding:20px 16px 40px}
+h1{font-size:22px;margin:0 0 4px}
+p{margin:0 0 14px;color:var(--mute)}
+.tabs{display:flex;gap:8px;margin-bottom:14px}
+.tab{flex:1;padding:10px;border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:8px;font:inherit;cursor:pointer}
+.tab[aria-pressed="true"]{background:var(--acc);color:var(--bg);border-color:var(--acc);font-weight:700}
+.sum{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:14px 16px;margin-bottom:14px}
+.sum b{font-size:24px}
+.req{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:12px 16px;margin-bottom:10px;display:flex;justify-content:space-between;gap:12px}
+.req small{display:block;color:var(--mute)}
+.pill{flex:none;align-self:flex-start;font-weight:700;font-size:13px;padding:3px 10px;border-radius:999px;background:var(--line);color:var(--mute);text-align:center;max-width:150px}
+.pill.ok{background:var(--okbg);color:var(--ok)}
+.pill.warn{background:var(--warnbg);color:var(--warn)}
+.pill.bad{background:#fbe4e2;color:#b3261e}
+.note{font-size:13px;color:var(--mute)}
+</style>
+</head>
+<body>
+<main>
+<h1>Swap approvals at FreshBowl</h1>
+<p>Seven swap requests from one evening (demo data). Switch between how Shiftwell works today and how it would work with rules.</p>
+
+<div class="tabs" role="group" aria-label="Mode">
+  <button class="tab" id="t0" aria-pressed="true">Today: manager approves all</button>
+  <button class="tab" id="t1" aria-pressed="false">With rules: auto-approve</button>
+</div>
+
+<div class="sum" id="sum" aria-live="polite"></div>
+<div id="list"></div>
+
+<p class="note">Rules: the person taking the shift must have valid certificates and be trained for the station, and their weekly hours after the swap must stay at or below 48. If both pass, the swap is approved at once and the manager is notified. Otherwise it goes to the manager.</p>
+</main>
+<script>
+var LIMIT=48;
+var R=[
+ {a:"Rohit",b:"Aman",st:"Grill",trained:true,hrs:30},
+ {a:"Isha",b:"Sana",st:"Fryer",trained:true,hrs:36},
+ {a:"Rohit",b:"Neha",st:"Grill",trained:false,hrs:24},
+ {a:"Karan",b:"Dev",st:"Prep",trained:true,hrs:42},
+ {a:"Isha",b:"Priya",st:"Fryer",trained:true,hrs:28},
+ {a:"Aman",b:"Karan",st:"Grill",trained:true,hrs:32},
+ {a:"Isha",b:"Tara",st:"Prep",trained:true,hrs:20,cert:true}
+];
+var SHIFT=8,mode=0;
+function $(i){return document.getElementById(i)}
+function check(r){
+ if(!r.trained)return r.b+" is not trained for "+r.st;
+ if(r.hrs+SHIFT>LIMIT)return r.b+" would work "+(r.hrs+SHIFT)+" hrs, over "+LIMIT;
+ return "";
+}
+function draw(){
+ $("t0").setAttribute("aria-pressed",mode==0);$("t1").setAttribute("aria-pressed",mode==1);
+ var n=0,bl=0,html="";
+ R.forEach(function(r){
+  var why=check(r),pill,cls="";
+  if(mode==0){pill="Waiting for manager";n++}
+  else if(r.cert){pill="Blocked";cls="bad";bl++}
+  else if(why){pill="Needs manager";cls="warn";n++}
+  else{pill="Approved instantly";cls="ok"}
+  html+='<div class="req"><div><b>'+r.b+' takes '+r.a+"'s shift</b><small>"+r.st+" station, "+SHIFT+" hrs. "+(mode==1&&r.cert?r.b+"'s food-handler certificate expired on 30 Sep, so the swap is blocked until it is renewed.":mode==1&&why?why+".":(mode==1?"Trained, "+(r.hrs+SHIFT)+" hrs this week.":""))+'</small></div><span class="pill '+cls+'">'+pill+'</span></div>';
+ });
+ $("list").innerHTML=html;
+ $("sum").innerHTML="<b>"+n+" of "+R.length+"</b> swaps need the manager"+(mode==0?"<br><span class=note>Staff wait for an answer. Only 38% of FreshBowl swaps are approved within 24 hours.</span>":"<br><span class=note>"+bl+" blocked for an expired certificate. The other "+(R.length-n-bl)+" were answered in seconds.</span>");
+}
+$("t0").onclick=function(){mode=0;draw()};$("t1").onclick=function(){mode=1;draw()};
+draw();
+</script>
+</body>
+</html>
